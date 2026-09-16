@@ -610,7 +610,59 @@ Answer these after running the simulations and producing the plots.
 - Frenkel, D., & Smit, B. (2002). *Understanding Molecular Simulation.* Academic Press. Chapter 6 (melting and freezing), Chapter 7 (free-energy calculations).
 - Buffat, P., & Borel, J.-P. (1976). *Size effect on the melting temperature of gold particles.* Phys. Rev. A, 13, 2287. — classic experimental paper on nanoparticle melting.
 
+
+
+# Installing LAMMPS with MEAM Support on Ubuntu
+
+To use LAMMPS with the MEAM (Modified Embedded Atom Method) potential on Ubuntu, you need to compile LAMMPS from source with the MEAM package enabled, or use `pair_style meam/c` if a modern C++ package is already included.
+
 ---
 
-*Author: [Your Name]*  
-*License: MIT*
+## 1. Install Dependencies
+
+Open your terminal and install the required build tools, C++ compiler, and MPI libraries:
+
+```bash
+sudo apt update
+sudo apt install build-essential cmake git gfortran libopenmpi-dev openmpi-bin
+```
+
+---
+
+## 2. Download LAMMPS Source Code
+
+Clone the official LAMMPS repository or download a stable tarball from the LAMMPS Documentation:
+
+```bash
+git clone https://github.com/lammps/lammps.git
+cd lammps
+mkdir build
+cd build
+```
+
+---
+
+## 3. Enable MEAM and Compile with CMake
+
+Configure the build using `cmake` and enable the MEAM package (`PKG_MEAM`):
+
+```bash
+sudo apt install cmake      # if needed
+```
+```bash
+cmake -D PKG_MEAM=yes ../cmake
+cmake --build . -j4
+```
+
+> **Note:** Replace `4` in `-j4` with the number of CPU cores you want to use for fast compilation.
+
+---
+
+## 4. Verify and Use MEAM in LAMMPS
+
+Once compiled, your executable (`lmp`) will have MEAM support built-in via `pair_style meam/c` (the modern C++ implementation). In your LAMMPS input script, define the pair style as:
+
+```lammps
+pair_style meam/c
+pair_coeff * * library.file element1 element2 potential.file element1 element2
+```
