@@ -572,8 +572,227 @@ variable natoms equal count(all)
 Uncomment the corresponding block in the Python script to normalize.
 
 ---
+## 8. Case 8 — Cu/Al Bilayer (Two Halves: Copper + Aluminum)
 
-## 8. Control Questions
+**File:** `melt_bilayer_CuAl.in`
+
+### 8.1 Physics Motivation
+
+In this case we build a **bilayer slab**: the bottom half is copper (fcc),
+the top half is aluminum (fcc). Because Cu and Al have different melting points
+(1358 K vs. 933 K experimentally), we expect **two separate transitions** in the
+energy–temperature curve:
+
+- On heating, the Al part melts **first** (around 900–1000 K), while the Cu part
+  is still solid. Later, the Cu part melts (around 1400–1600 K).
+- On cooling, the Cu part crystallizes first (higher T), then the Al part
+  crystallizes at a lower temperature.
+
+This produces a **two-step hysteresis loop** — an excellent demonstration of how
+heterostructures behave differently from pure metals. The internal Cu–Al
+interface also acts as a nucleation site for melting and crystallization.
+
+For simplicity, we use a **compromise lattice constant** a = 3.8 Å (between Cu
+3.615 Å and Al 4.05 Å), so both metals are slightly strained but the interface
+is coherent. Fully periodic boundary conditions (`p p p`) are used, so we focus
+on the internal Cu–Al interface without free surfaces.
+
+### 8.2 Full Listing
+
+```lammps
+# ============================================================
+# melt_bilayer_CuAl.in — Melting hysteresis of a Cu/Al bilayer
+# ============================================================
+units           metal
+dimension       3
+boundary        p p p
+atom_style      atomic
+timestep        0.002
+
+# ---------- Lattice ----------
+# Compromise lattice constant between Cu (3.615 A) and Al (4.05 A)
+lattice         fcc 3.8
+
+# ---------- Box: 8x8x16 lattice units ----------
+region          box block 0 8 0 8 0 16
+create_box      2 box
+
+# ---------- Bottom half: Cu (atom type 1) ----------
+region          cu_reg block 0 8 0 8 0 8
+create_atoms    1 region cu_reg
+
+# ---------- Top half: Al (atom type 2) ----------
+region          al_reg block 0 8 0 8 8 16
+create_atoms    2 region al_reg
+
+# ---------- MEAM potential for Cu-Al ----------
+pair_style      meam/c
+pair_coeff      * * library.meam Cu Al NULL Cu Al
+
+neighbor        0.3 bin
+neigh_modify    delay 10
+
+# ---------- Thermodynamic output ----------
+thermo          100
+thermo_style    custom step temp pe ke etotal press vol
+
+# ---------- Write energy + temperature + step to file ----------
+compute         mype all pe
+compute         mytemp all temp
+fix             myout all ave/time 1 1 100 c_mytemp c_mype file melt_bilayer_CuAl.txt
+
+# ---------- Relaxation at 300 K ----------
+velocity        all create 300.0 12345 dist gaussian
+fix             nvt_relax all nvt temp 300.0 300.0 0.1
+run             100000
+unfix           nvt_relax
+
+# ---------- Heating ----------
+fix             nvt_heat all nvt temp 300.0 2000.0 0.1
+run             500000
+unfix           nvt_heat
+
+# ---------- Cooling ----------
+fix             nvt_cool all nvt temp 2000.0 300.0 0.1
+run             500000
+unfix           nvt_cool
+
+write_data      final_bilayer_CuAl.data
+```
+
+### 8.3 Command-by-Command Explanation
+
+#### Setup
+
+- **`units metal`, `dimension 3`, `atom_style atomic`, `timestep 0.002`** —
+  the same as in the previous cases: Å, eV, ps, K; 3D; point atoms; 2 fs step.
+- **`boundary p p p`** — periodic in all directions. There are **no free
+  surfaces**. The only interface in the system is the internal Cu–Al boundary.
+  This isolates the effect of the heterointerface on melting.
+
+#### Building the bilayer
+
+- **`lattice fcc 3.8`** — compromise fcc lattice constant. Cu would prefer
+  3.615 Å, Al 4.05 Å; 3.8 Å is a middle ground so both metals are mildly
+  strained but the interface is coherent.
+- **`region box block 0 8 0 8 0 16`** — the total simulation box:
+  8 × 8 × 16 lattice units = 30.4 × 30.4 × 60.8 Å.
+- **`create_box 2 box`** — create the box with **2 atom types** (Cu and Al).
+- **`region cu_reg block 0 8 0 8 0 8`** — the bottom half of the box
+  (z = 0 to 8 lattice units). This will host copper.
+- **`create_atoms 1 region cu_reg`** — fill the bottom half with atoms of
+  **type 1** (Cu).
+- **`region al_reg block 0 8 0 8 8 16`** — the top half of the box
+  (z = 8 to 16 lattice units). This will host aluminum.
+- **`create_atoms 2 region al_reg`** — fill the top half with atoms of
+  **type 2** (Al).
+
+After these commands, the system contains ≈ 2048 Cu atoms and ≈ 2048 Al atoms
+(~4096 total), with a flat Cu–Al interface at z ≈ 30.4 Å.
+
+#### Interatomic potential
+
+- **`pair_style meam/c`** — the modern C++ implementation of MEAM, capable of
+  handling multi-element systems.
+- **`pair_coeff * * library.meam Cu Al NULL Cu Al`** — the argument list:
+  - `* *` — apply to all type pairs (Cu–Cu, Al–Al, Cu–Al).
+  - `library.meam` — global MEAM parameter library containing Cu, Al, and
+    Cu–Al cross-interaction parameters.
+  - `Cu Al` — the two elements to extract from the library, in the order they
+    will be mapped to atom types.
+  - `NULL` — no element-specific potential file; all parameters are taken
+    from the library. (If your LAMMPS version rejects `NULL`, try
+    `pair_coeff * * library.meam Cu Al Cu.meam Al.meam Cu Al` instead, or
+    create a combined `CuAl.meam` file.)
+  - final `Cu Al` — mapping: atom type 1 → Cu, atom type 2 → Al.
+
+#### Output
+
+- **`compute mype all pe`**, **`compute mytemp all temp`** — as before.
+- **`fix myout all ave/time 1 1 100 c_mytemp c_mype file melt_bilayer_CuAl.txt`** —
+  writes the file `melt_bilayer_CuAl.txt` with three columns:
+  **Step, Temperature (K), Potential Energy (eV)**. The same format as the
+  earlier cases, so the same Python script can read it.
+
+#### Relaxation
+
+- **`velocity all create 300.0 12345 dist gaussian`** — initial velocities
+  corresponding to 300 K.
+- **`fix nvt_relax all nvt temp 300.0 300.0 0.1`** — hold the system at 300 K
+  for 100 000 steps (200 ps) to relax the Cu–Al interface and release any
+  initial strain from the lattice mismatch.
+
+#### Heating and cooling
+
+- **`fix nvt_heat all nvt temp 300.0 2000.0 0.1`** — ramp from 300 K to
+  2000 K over 1 ns.
+- **`fix nvt_cool all nvt temp 2000.0 300.0 0.1`** — cool from 2000 K back to
+  300 K over 1 ns.
+
+The upper temperature (2000 K) is chosen above the melting point of Cu
+(~1358 K experimentally) so that **both metals melt** during the heating
+stage.
+
+- **`write_data final_bilayer_CuAl.data`** — save the final configuration.
+
+### 8.4 What You Should Observe
+
+Plotting PE vs T for this system reveals a **two-step** behavior:
+
+1. **First jump (~900–1000 K, heating):** the Al sublattice melts.
+2. **Second jump (~1400–1600 K, heating):** the Cu sublattice melts.
+3. **On cooling:** the reverse happens, but shifted to lower temperatures —
+   Cu crystallizes first, then Al.
+
+The hysteresis loop is thus **wider** than for pure Al or pure Cu, and it
+contains a **plateau-like intermediate region** where one metal is liquid and
+the other is still solid.
+
+To see the two metals separately, you can add extra computes per group:
+
+```lammps
+group cu_group type 1
+group al_group type 2
+
+compute pe_cu cu_group pe
+compute pe_al al_group pe
+
+fix out_sep all ave/time 1 1 100 c_pe_cu c_pe_al file melt_bilayer_sep.txt
+```
+
+This produces a file with **two separate energy columns**, letting you track
+the Cu and Al subsystems independently and cleanly resolve the two melting
+events.
+
+### 8.5 Python Script Update
+
+The Python script from Section 7 can be extended to include the bilayer
+curve. Add the following lines:
+
+```python
+step_bil, T_bil, PE_bil = read_lammps_output('melt_bilayer_CuAl.txt')
+
+ax.plot(T_bil, PE_bil, 'D-', ms=3, lw=1.2,
+        color='tab:red', label='Cu/Al bilayer')
+```
+
+Because the bilayer contains 4096 atoms and the pure systems contain different
+numbers, it is strongly recommended to **normalize by atom count** for a fair
+comparison:
+
+```python
+PE_bulk /= 2048      # bulk Al
+PE_slab /= 5120      # slab Al
+PE_nano /= 4000      # nanoparticle Al
+PE_bil  /= 4096      # Cu/Al bilayer
+```
+
+Now the y-axis reads **eV/atom** and all curves are directly comparable. The
+bilayer curve will sit between the pure Al and pure Cu curves (because its
+average cohesive energy is a weighted mixture of the two).
+
+
+## 9. Control Questions
 
 Answer these after running the simulations and producing the plots.
 
@@ -596,10 +815,12 @@ Answer these after running the simulations and producing the plots.
 9. **Examine the shape of the energy–temperature curve** near the transition. Why is the transition *sharp* in a perfect bulk crystal but *smoother* in a nanoparticle? (Hint: think about the distribution of local environments.)
 
 10. **What is the finite-size effect** on melting temperature? If you simulated a 10 nm particle instead of 5 nm, would T_m be higher or lower? Use the Gibbs–Thomson relation to make a quantitative prediction.
+    
+11. **Two-step melting in the bilayer.** From your energy–temperature curve for the Cu/Al bilayer, identify the two melting events and the two crystallization events. Estimate the four transition temperatures and compare them with the corresponding pure-metal values from Sections 3–6. Does the Cu–Al interface make Al melt *earlier* or *later* than in the pure case? Why? (Hint: think about strain, interface energy, and the fact that Cu is a higher-melting-point "substrate".)
 
 ---
 
-## 9. Further Reading
+## 10. Further Reading
 
 - Foiles, S. M., Baskes, M. I., & Daw, M. S. (1986). *Embedded-atom-method functions for the fcc metals Cu, Ag, Au, Ni, Pd, Pt, and their alloys.* Phys. Rev. B, 33, 7983.
 - Baskes, M. I. (1992). *Modified embedded-atom potentials for cubic materials and impurities.* Phys. Rev. B, 46, 2727.
