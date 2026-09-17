@@ -4,19 +4,19 @@ A hands-on tutorial for students: simulating the melting–crystallization hyste
 
 ## Overview of the Tutorial Cases
 
-| # | Topic / Section | What is modeled (one line) |
-|---|-----------------|----------------------------|
-| 1 | Introduction and Physics Background | Melting/supercooling concepts and the MEAM potential. |
-| 2 | Required Files and Setup | Copying `library.meam`, `Al.meam`, `Cu.meam` and project layout. |
-| 3 | Case 1 — Bulk Crystal (Al) | Al fcc crystal, `p p p`, heating 300→2000 K and cooling back to get hysteresis. |
-| 4 | Case 2 — Semi-Infinite Slab (Al) | Al slab with two free surfaces, `p p f`, showing surface premelting. |
-| 5 | Case 3 — Nanoparticle 5 nm (Al) | Isolated Al fcc nanoparticle, `f f f`, size-dependent (Gibbs–Thomson) melting. |
-| 6 | Case 4 — Copper Variants | Same three geometries for Cu with higher temperature ranges. |
-| 7 | Python Visualization Script | Reads `melt_*.txt` and plots all hysteresis curves on one graph. |
-| 8 | Case 8 — Cu/Al Bilayer | Bottom half Cu + top half Al, relaxed then heated/cooled to reveal two-step hysteresis. |
-| 9 | Control Questions | 11 questions to check understanding of the physics and results. |
-| 10 | Further Reading | References on MEAM, LAMMPS, and melting theory. |
-| — | Installing LAMMPS with MEAM on Ubuntu | Build LAMMPS from source with `PKG_MEAM=yes` and verify `pair_style meam/c`. |
+| # | Topic / Section | What is modeled (one line) | Expected result |
+|---|-----------------|----------------------------|-----------------|
+| 1 | Introduction and Physics Background | Melting/supercooling concepts and the MEAM potential. | — |
+| 2 | Required Files and Setup | Copying `library.meam`, `Al.meam`, `Cu.meam` and project layout. | Working directory ready to run all input scripts. |
+| 3 | Case 1 — Bulk Crystal (Al) | Al fcc crystal, `p p p`, heating 300→2000 K and cooling back to get hysteresis. | Sharp melting jump near ~900–1000 K; crystallization at ~700–800 K; wide hysteresis loop. |
+| 4 | Case 2 — Semi-Infinite Slab (Al) | Al slab with two free surfaces, `p p f`, showing surface premelting. | Melting starts earlier than in bulk; narrower hysteresis loop due to surface nucleation. |
+| 5 | Case 3 — Nanoparticle 5 nm (Al) | Isolated Al fcc nanoparticle, `f f f`, size-dependent (Gibbs–Thomson) melting. | T_m shifted down by 100–200 K; smoothest transition and smallest hysteresis. |
+| 6 | Case 4 — Copper Variants | Same three geometries for Cu with higher temperature ranges. | Same qualitative ordering as Al, but all transitions shifted to higher T (bulk Cu ~1358 K). |
+| 7 | Python Visualization Script | Reads `melt_*.txt` and plots all hysteresis curves on one graph. | One PNG (`hysteresis_Al.png` / `hysteresis_Cu.png`) with three curves for direct comparison. |
+| 8 | Case 8 — Cu/Al Bilayer | Bottom half Cu + top half Al, relaxed then heated/cooled to reveal two-step hysteresis. | Two distinct melting/crystallization events (Al first, then Cu); wider loop with an intermediate plateau. |
+| 9 | Control Questions | 11 questions to check understanding of the physics and results. | Estimated T_m, T_c, hysteresis widths, and physical interpretation for each case. |
+| 10 | Further Reading | References on MEAM, LAMMPS, and melting theory. | — |
+| — | Installing LAMMPS with MEAM on Ubuntu | Build LAMMPS from source with `PKG_MEAM=yes` and verify `pair_style meam/c`. | A `lmp` binary that recognizes `pair_style meam` and `pair_style meam/c`. |
 
 # 1. Introduction and Physics Background
 
